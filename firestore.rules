@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions for Role-Based Access Control (RBAC)
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserData().role == 'ADMIN';
+    }
+    
+    function isSecurityAnalyst() {
+      return isAuthenticated() && (getUserData().role == 'SECURITY_ANALYST' || getUserData().role == 'ADMIN');
+    }
+    
+    function isViewer() {
+      return isAuthenticated();
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAdmin() || (isAuthenticated() && request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+
+    // Default catch-all for SOC collections (assets, logs, alerts, incidents, iocs, vulnerabilities, etc.)
+    match /{collectionName}/{docId} {
+      allow read: if isViewer();
+      allow create, update: if isSecurityAnalyst();
+      allow delete: if isAdmin();
+    }
+  }
+}
