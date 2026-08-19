@@ -1,12 +1,16 @@
 # CyberSentinel – AI-Powered Cloud SOC & Threat Intelligence Platform with Multimodal Phishing Detection
 
-[![CyberSentinel Status](https://img.shields.io/badge/SOC_Platform-v1.0.0-00f0ff.svg?style=flat-square)](https://github.com/)
+[![CyberSentinel Status](https://img.shields.io/badge/SOC_Platform-v1.0.0-00f0ff.svg?style=flat-square)](https://github.com/Srivardhan27/CYBERSENTINEL-)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Deployed-brightgreen.svg?style=flat-square&logo=vercel)](https://cybersentinel-mu.vercel.app/)
 [![React + Vite](https://img.shields.io/badge/Frontend-React_18_%2B_Vite-61dafb.svg?style=flat-square)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/UI-Tailwind_CSS-38bdf8.svg?style=flat-square)](https://tailwindcss.com/)
 [![Firebase](https://img.shields.io/badge/Backend-Firebase_Auth_%2B_Firestore-ffca28.svg?style=flat-square)](https://firebase.google.com/)
 [![FastAPI](https://img.shields.io/badge/Security_Engine-FastAPI-009688.svg?style=flat-square)](https://fastapi.tiangolo.com/)
 
 CyberSentinel is an AI-assisted Security Operations Center (SOC) platform designed for real-time threat monitoring, security log normalization, machine-learning anomaly detection, incident response, vulnerability management, MITRE ATT&CK correlation, and multimodal phishing detection via **PhishGuard AI**.
+
+> 🌐 **Live Vercel Production Platform**: [https://cybersentinel-mu.vercel.app/](https://cybersentinel-mu.vercel.app/)  
+> 📁 **GitHub Repository**: [https://github.com/Srivardhan27/CYBERSENTINEL-](https://github.com/Srivardhan27/CYBERSENTINEL-)
 
 > [!NOTE]  
 > **Defensive Security & Lab Compliance:** This system is built strictly for defensive cybersecurity monitoring and authorized lab/educational environments. It uses synthetic/demo security telemetry and avoids any offensive exploitation, credential theft, or unauthorized scanning.
@@ -16,13 +20,28 @@ CyberSentinel is an AI-assisted Security Operations Center (SOC) platform design
 ## 🌟 Key Features
 
 - **SOC Operations Command Dashboard**: Real-time KPI metrics, active alert streams, risk indicators, and threat severity distribution.
-- **Multimodal PhishGuard AI**: Dedicated engine for Email, URL, Website, SMS/Smishing, QR Code (Quishing), and Vishing transcript analysis.
+- **Multimodal PhishGuard AI**: Dedicated engines for Email (RoBERTa + TF-IDF), URL (18 Feature Vectors), Website (DOM Audit), SMS/Smishing, QR Code Image Matrix Scanning, and Vishing Call Transcript Analysis.
+- **Precision Threat Detection & Hashing**: Web Crypto API authentic SHA-256 file hashing, double-extension masquerade detection, and VirusTotal / AbuseIPDB threat feed aggregation.
 - **Security Log Explorer**: Normalization of Windows, Linux, Firewall, SSH, and HTTP logs into standard JSON event formats.
 - **Rule-Based Threat Detection**: Detection rules for brute force, port scans, suspicious PowerShell, and malicious IOC hits.
 - **ML Anomaly Detection**: Isolation Forest & Random Forest models for login and network anomaly scoring.
 - **MITRE ATT&CK Mapping**: Interactive mapping of security alerts to ATT&CK tactics & techniques (e.g., T1110, T1046, T1566.002).
 - **Incident & Asset Management**: End-to-end incident lifecycles (NEW -> INVESTIGATING -> CONTAINED -> RESOLVED) and host vulnerability scoring.
-- **Role-Based Access Control (RBAC)**: Enforced `ADMIN`, `SECURITY_ANALYST`, and `VIEWER` roles.
+- **AI Security Threat Analyst Assistant**: Automated LLM investigation briefs strictly separating **CONFIRMED EVIDENCE** from **AI HYPOTHESES**.
+- **Role-Based Access Control (RBAC)**: Enforced `ADMIN`, `SECURITY_ANALYST`, and `VIEWER` roles with one-click demo role switching.
+
+---
+
+## 🌐 Production Deployment (Vercel)
+
+The frontend is deployed to Vercel with SPA rewrites configured in `vercel.json`:
+
+- **Production URL**: [https://cybersentinel-mu.vercel.app/](https://cybersentinel-mu.vercel.app/)
+
+To deploy updates manually or automatically:
+1. Connect [Srivardhan27/CYBERSENTINEL-](https://github.com/Srivardhan27/CYBERSENTINEL-) to your Vercel workspace (`srivardhan27s-projects`).
+2. Set Root Directory to `frontend`.
+3. Vercel automatically runs `npm run build` and deploys the production distribution.
 
 ---
 
@@ -66,22 +85,27 @@ cybersentinel/
 ├── frontend/                 # React + Vite SOC Frontend
 │   ├── src/
 │   │   ├── components/       # StatusBadges, StatCards, Navbar, Sidebar
-│   │   ├── pages/            # DashboardPage, PhishGuard, IOCAnalyzer, etc.
+│   │   ├── context/          # AuthContext (Firebase Auth + RBAC)
+│   │   ├── firebase/         # Firebase Client SDK & Firestore Services
 │   │   ├── layouts/          # SOCLayout wrapper
-│   │   ├── utils/            # Mock telemetry generators & helpers
-│   │   ├── App.jsx           # Master route matrix
-│   │   └── main.jsx          # Entry point
+│   │   ├── pages/            # Dashboard, PhishGuard, IOC, AI Analyst, etc.
+│   │   └── utils/            # Web Crypto Hashing, QR Matrix Decoder & Telemetry
 │   ├── package.json
 │   ├── vite.config.js
+│   ├── vercel.json           # Vercel SPA Routing Configuration
 │   └── tailwind.config.js
-├── functions/                # Firebase Cloud Functions
 ├── fastapi/                  # Python FastAPI Security Engine
+│   ├── app/
+│   │   └── routers/          # Log Normalizer, PhishGuard, IOC, Risk, AI Analyst
+│   └── requirements.txt
+├── functions/                # Firebase Cloud Functions
 ├── ml/                       # Machine Learning Datasets & Models
 ├── firestore.rules           # Firestore RBAC Security Rules
 ├── firestore.indexes.json    # Firestore Compound Query Indexes
-├── firebase.json             # Firebase Suite Configuration (Hosting added in optional phase)
+├── firebase.json             # Firebase Configuration (Hosting Disabled)
+├── vercel.json               # Root Vercel Build Configuration
 ├── .env.example              # Environment Variable Template
-└── README.md                 # Documentation
+└── README.md                 # Project Documentation
 ```
 
 ---
@@ -124,16 +148,3 @@ VITE_API_BASE_URL=http://localhost:8000/api/v1
 ```
 
 > **Security Note:** Private API keys (`VIRUSTOTAL_API_KEY`, `AI_API_KEY`) belong strictly in backend FastAPI server environments and are never bundled into client-side code.
-
----
-
-## 📋 Verification Checklist (Phase 1)
-
-- [x] React 18 + Vite project established
-- [x] Tailwind CSS dark cybersecurity SOC theme styled
-- [x] Lucide React icons & Recharts visualizations integrated
-- [x] Responsive layout with collapsible sidebar & navigation drawer built
-- [x] SOC Dashboard with KPI cards, 24-hour alert timeline, and real-time alert feed running
-- [x] Router configured with sub-routes for 20+ SOC pages
-- [x] Synthetic security telemetry populated
-- [x] Clean execution on localhost without build errors
