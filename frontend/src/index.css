@@ -4,18 +4,23 @@
 
 @layer base {
   body {
-    @apply bg-[#090d16] text-slate-100 font-sans antialiased;
+    @apply bg-[#070b12] text-slate-100 font-sans antialiased selection:bg-cyan-500 selection:text-black min-h-screen;
+    background-image: 
+      radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.05) 0%, transparent 60%),
+      linear-gradient(to right, rgba(30, 41, 59, 0.15) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(30, 41, 59, 0.15) 1px, transparent 1px);
+    background-size: 100% 100%, 32px 32px, 32px 32px;
   }
 }
 
-/* Custom Scrollbars for SOC Terminal Aesthetic */
+/* Custom Scrollbar for Cyber SOC Terminal Aesthetic */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: #070b12;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -24,22 +29,32 @@
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #00f0ff;
 }
 
-/* Glow effects */
+/* Neon Glow Utilities */
 .glow-cyan {
-  box-shadow: 0 0 15px -3px rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 20px -3px rgba(0, 240, 255, 0.35);
 }
 
 .glow-red {
-  box-shadow: 0 0 15px -3px rgba(255, 51, 102, 0.3);
+  box-shadow: 0 0 20px -3px rgba(255, 51, 102, 0.35);
 }
 
 .glow-amber {
-  box-shadow: 0 0 15px -3px rgba(255, 170, 0, 0.3);
+  box-shadow: 0 0 20px -3px rgba(255, 170, 0, 0.35);
 }
 
 .glow-green {
-  box-shadow: 0 0 15px -3px rgba(0, 255, 136, 0.3);
+  box-shadow: 0 0 20px -3px rgba(0, 255, 136, 0.35);
+}
+
+/* Radar Scan Animation */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-radar {
+  animation: radar-sweep 4s linear infinite;
 }

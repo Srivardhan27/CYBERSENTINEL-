@@ -14,7 +14,11 @@ import {
   RefreshCw,
   Clock,
   ChevronRight,
-  ExternalLink
+  Radio,
+  Globe2,
+  Zap,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -40,13 +44,28 @@ import {
   MOCK_RECENT_EVENTS,
 } from '../utils/mockData';
 
+const MOCK_ATTACK_STREAMS = [
+  { id: 'ATK-101', origin: '185.220.101.5 (Tor / Moscow Node)', target: '10.0.0.12 (PROD-DB-01)', vector: 'SSH Brute Force (T1110)', status: 'ACTIVE BLOCKED', severity: 'CRITICAL' },
+  { id: 'ATK-102', origin: '45.33.32.156 (Ashburn USA)', target: '10.0.2.14 (K8S-NODE-02)', vector: 'SYN Port Scan (T1046)', status: 'MONITORED', severity: 'HIGH' },
+  { id: 'ATK-103', origin: '103.253.41.88 (Tokyo Node)', target: '10.0.4.88 (WORKSTATION-04)', vector: 'Encoded PowerShell (T1059.001)', status: 'CONTAINED', severity: 'CRITICAL' },
+  { id: 'ATK-104', origin: '194.26.29.112 (Frankfurt)', target: 'user.target@corp.internal', vector: 'PhishGuard Credential Link (T1566.002)', status: 'BLOCKED BY AI', severity: 'HIGH' },
+];
+
 const DashboardPage = () => {
   const [filterSeverity, setFilterSeverity] = useState('ALL');
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [postureLevel, setPostureLevel] = useState('ELEVATED');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [activeActions, setActiveActions] = useState([]);
 
-  const handleRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => setIsRefreshing(false), 600);
+  const handleSync = () => {
+    setIsSyncing(true);
+    setTimeout(() => setIsSyncing(false), 600);
+  };
+
+  const handleTriggerAction = (actionName) => {
+    if (!activeActions.includes(actionName)) {
+      setActiveActions([...activeActions, actionName]);
+    }
   };
 
   const filteredEvents = MOCK_RECENT_EVENTS.filter((event) => {
@@ -56,18 +75,20 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-[#0c182b] to-slate-900 border border-slate-800 shadow-xl">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-cyan-950 text-cyan-400 border border-cyan-500/30">
+      {/* Top Cyber Command Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-[#0c182b] to-slate-900 border border-cyan-500/30 shadow-2xl relative overflow-hidden">
+        <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-cyan-500/5 blur-3xl pointer-events-none" />
+
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-950 text-cyan-400 border border-cyan-500/40 glow-cyan">
               LIVE SOC STREAM
             </span>
             <span className="text-xs font-mono text-slate-400">
-              Last updated: {new Date().toLocaleTimeString()}
+              System Sync: {new Date().toLocaleTimeString()}
             </span>
           </div>
-          <h2 className="text-xl font-bold font-mono text-white mt-1">
+          <h2 className="text-2xl font-bold font-mono text-white tracking-tight uppercase">
             Global Security Operations Command
           </h2>
           <p className="text-xs text-slate-400">
@@ -75,22 +96,43 @@ const DashboardPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Posture Switcher */}
+          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800">
+            <span className="text-[10px] font-mono text-slate-400 px-2 uppercase">Posture:</span>
+            {['NORMAL', 'ELEVATED', 'SEVERE'].map((lvl) => (
+              <button
+                key={lvl}
+                onClick={() => setPostureLevel(lvl)}
+                className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
+                  postureLevel === lvl
+                    ? lvl === 'SEVERE'
+                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/30'
+                      : 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                {lvl}
+              </button>
+            ))}
+          </div>
+
           <button
-            onClick={handleRefresh}
+            onClick={handleSync}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-200 transition-colors"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
             <span>Sync Feed</span>
           </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-950/40 border border-rose-500/30 text-rose-400 font-mono text-xs font-bold">
+
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold glow-red">
             <Activity className="w-3.5 h-3.5 animate-pulse" />
-            <span>RISK SCORE: {MOCK_DASHBOARD_STATS.overallRiskScore}/100</span>
+            <span>RISK SCORE: 78/100</span>
           </div>
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* KPI Stats Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title="Total Monitored Assets"
@@ -142,20 +184,64 @@ const DashboardPage = () => {
           value={MOCK_DASHBOARD_STATS.phishingScansTotal}
           icon={Sparkles}
           color="green"
-          subtitle={`${MOCK_DASHBOARD_STATS.phishingBlocked} Phishing Attacks Blocked`}
+          subtitle={`${MOCK_DASHBOARD_STATS.phishingBlocked} Phishing Vectors Blocked`}
         />
         <StatCard
-          title="Threat Level Status"
-          value={MOCK_DASHBOARD_STATS.overallThreatLevel}
+          title="Threat Posture Status"
+          value={postureLevel}
           icon={Activity}
           color="amber"
           subtitle="Defensive posture level"
         />
       </div>
 
+      {/* Live Global Threat Matrix & Attack Vectors */}
+      <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-bold font-mono text-white flex items-center gap-2">
+              <Globe2 className="w-4 h-4 text-cyan-400" />
+              Live Cyber Attack Telemetry Matrix & Vector Streams
+            </h3>
+            <p className="text-xs text-slate-400">
+              Active incoming attack origins targeting internal network subnets
+            </p>
+          </div>
+          <span className="text-xs font-mono text-rose-400 bg-rose-950/60 px-2.5 py-1 rounded border border-rose-500/30 flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+            4 ACTIVE VECTOR STREAMS
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+          {MOCK_ATTACK_STREAMS.map((atk) => (
+            <div
+              key={atk.id}
+              className="p-4 rounded-xl bg-slate-950/80 border border-slate-800 hover:border-cyan-500/40 transition-colors space-y-2"
+            >
+              <div className="flex justify-between items-center text-[11px] font-mono">
+                <span className="text-cyan-400 font-bold">{atk.id}</span>
+                <StatusBadge level={atk.severity} />
+              </div>
+              <p className="text-xs font-mono font-semibold text-slate-200 truncate">{atk.vector}</p>
+              <div className="text-[11px] font-mono text-slate-400 space-y-0.5">
+                <p className="truncate">Src: <span className="text-rose-300">{atk.origin}</span></p>
+                <p className="truncate">Dst: <span className="text-cyan-300">{atk.target}</span></p>
+              </div>
+              <div className="pt-2 border-t border-slate-900 flex justify-between items-center text-[10px] font-mono">
+                <span className="text-emerald-400 font-bold">{atk.status}</span>
+                <Link to="/ai-analyst" className="text-cyan-400 hover:underline flex items-center gap-0.5">
+                  Brief <ArrowUpRight className="w-3 h-3" />
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 24-Hour Alert Volume Timeline (2 Cols) */}
+        {/* 24-Hour Alert Volume Timeline */}
         <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900/80 border border-slate-800">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -264,14 +350,14 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* MITRE ATT&CK Frequency & Threat Intelligence Summary */}
+      {/* MITRE ATT&CK & Quick Action Remediation Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800">
           <h3 className="text-sm font-bold font-mono text-white mb-1">
             Top MITRE ATT&CK Techniques Triggered
           </h3>
           <p className="text-xs text-slate-400 mb-4">
-            Most frequent adversary tactics mapped over the past 24 hours
+            Most frequent adversary tactics mapped over past 24 hours
           </p>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
@@ -301,54 +387,85 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between">
+        {/* Interactive Quick Action Controls */}
+        <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-bold font-mono text-white flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                PhishGuard AI Telemetry Summary
+                <Zap className="w-4 h-4 text-cyan-400" />
+                One-Click SOC Incident Controls
               </h3>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
-                ACCURACY: 98.4%
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded border border-cyan-500/30">
+                ACTIVE CONTROLS
               </span>
             </div>
             <p className="text-xs text-slate-400 mb-4">
-              Multimodal email, URL, website & smishing detection stats
+              Trigger automated defensive countermeasures across perimeter gateways
             </p>
 
-            <div className="space-y-3">
-              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-mono text-slate-200">Email Phishing Analyzed</p>
-                  <p className="text-[11px] text-slate-400">92 suspicious messages scanned</p>
+            <div className="space-y-2.5">
+              <button
+                onClick={() => handleTriggerAction('isolate_db')}
+                className="w-full p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-rose-500/40 flex items-center justify-between transition-all"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-mono font-bold text-slate-200">Isolate Compromised Host 10.0.0.12</p>
+                  <p className="text-[11px] font-mono text-slate-400">Trigger NAC network quarantine script</p>
                 </div>
-                <span className="text-sm font-bold font-mono text-rose-400">21 Flagged</span>
-              </div>
+                {activeActions.includes('isolate_db') ? (
+                  <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> ISOLATED
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 rounded bg-rose-950 text-rose-400 text-[10px] font-mono font-bold border border-rose-500/30">
+                    TRIGGER
+                  </span>
+                )}
+              </button>
 
-              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-mono text-slate-200">URL & QR Phishing Scans</p>
-                  <p className="text-[11px] text-slate-400">46 external links inspected</p>
+              <button
+                onClick={() => handleTriggerAction('block_c2')}
+                className="w-full p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-rose-500/40 flex items-center justify-between transition-all"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-mono font-bold text-slate-200">Block C2 IP 185.220.101.5</p>
+                  <p className="text-[11px] font-mono text-slate-400">Push rule to pfSense Edge Firewall</p>
                 </div>
-                <span className="text-sm font-bold font-mono text-amber-400">9 Malicious</span>
-              </div>
+                {activeActions.includes('block_c2') ? (
+                  <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> BLOCKED
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 rounded bg-rose-950 text-rose-400 text-[10px] font-mono font-bold border border-rose-500/30">
+                    TRIGGER
+                  </span>
+                )}
+              </button>
 
-              <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-mono text-slate-200">Smishing & Vishing Audio</p>
-                  <p className="text-[11px] text-slate-400">20 transcripts processed</p>
+              <button
+                onClick={() => handleTriggerAction('enforce_mfa')}
+                className="w-full p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-cyan-500/40 flex items-center justify-between transition-all"
+              >
+                <div className="text-left">
+                  <p className="text-xs font-mono font-bold text-slate-200">Enforce Mandatory MFA Policy</p>
+                  <p className="text-[11px] font-mono text-slate-400">Revoke active Kerberos auth tickets</p>
                 </div>
-                <span className="text-sm font-bold font-mono text-cyan-400">4 High Risk</span>
-              </div>
+                {activeActions.includes('enforce_mfa') ? (
+                  <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-4 h-4" /> ENFORCED
+                  </span>
+                ) : (
+                  <span className="px-2 py-1 rounded bg-cyan-950 text-cyan-400 text-[10px] font-mono font-bold border border-cyan-500/30">
+                    ENFORCE
+                  </span>
+                )}
+              </button>
             </div>
           </div>
 
           <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
-            <span className="text-slate-400">Engine: BERT + Random Forest</span>
-            <Link
-              to="/phishguard"
-              className="text-cyan-400 hover:underline flex items-center gap-1"
-            >
+            <span className="text-slate-400">PhishGuard Engine: Active</span>
+            <Link to="/phishguard" className="text-cyan-400 hover:underline flex items-center gap-1">
               Open PhishGuard <ArrowUpRight className="w-3.5 h-3.5" />
             </Link>
           </div>
@@ -386,7 +503,6 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        {/* Responsive Table */}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -403,20 +519,13 @@ const DashboardPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
               {filteredEvents.map((evt) => (
-                <tr
-                  key={evt.id}
-                  className="hover:bg-slate-800/40 transition-colors group"
-                >
+                <tr key={evt.id} className="hover:bg-slate-800/40 transition-colors">
                   <td className="py-3 px-3 font-semibold text-cyan-400">{evt.id}</td>
-                  <td className="py-3 px-3 text-slate-400 whitespace-nowrap">
-                    {evt.timestamp}
-                  </td>
+                  <td className="py-3 px-3 text-slate-400 whitespace-nowrap">{evt.timestamp}</td>
                   <td className="py-3 px-3">
                     <StatusBadge level={evt.severity} />
                   </td>
-                  <td className="py-3 px-3 font-sans font-medium text-slate-200">
-                    {evt.title}
-                  </td>
+                  <td className="py-3 px-3 font-sans font-medium text-slate-200">{evt.title}</td>
                   <td className="py-3 px-3 text-slate-300 font-mono">{evt.sourceIp}</td>
                   <td className="py-3 px-3">
                     <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">
@@ -427,9 +536,9 @@ const DashboardPage = () => {
                     <StatusBadge level={evt.status} />
                   </td>
                   <td className="py-3 px-3 text-right">
-                    <button className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-cyan-400">
+                    <Link to="/alerts" className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-cyan-400 inline-block">
                       <ChevronRight className="w-4 h-4" />
-                    </button>
+                    </Link>
                   </td>
                 </tr>
               ))}
