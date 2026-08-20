@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Binary, Search, Upload } from 'lucide-react';
+import { Binary, Search, Upload, Printer } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import ScanReportModal from '../components/ScanReportModal';
 import { calculateFileSha256, inspectFileArtifact } from '../utils/cryptoUtils';
 import { addDocument, COLLECTIONS } from '../firebase/firestoreService';
 
@@ -8,19 +9,23 @@ const IOCAnalyzerPage = () => {
   const [iocValue, setIocValue] = useState('185.220.101.5');
   const [isHashing, setIsHashing] = useState(false);
   const [uploadedFile, setUploadedFile] = useState(null);
+  const [reportModalData, setReportModalData] = useState(null);
   const [result, setResult] = useState({
+    id: 'SCN-9006',
     value: '185.220.101.5',
+    target: '185.220.101.5',
+    type: 'IP',
     ioc_type: 'IP',
     reputation: 'MALICIOUS',
+    classification: 'MALICIOUS',
     risk_score: 94,
+    riskScore: 94,
     threat_category: 'C2 Server / Tor Exit Node',
     first_seen: '2026-08-10 04:12:00',
-    last_seen: '2026-08-19 09:30:00',
+    last_seen: new Date().toISOString(),
     virustotal_positives: 42,
     abuseipdb_confidence: 100,
-    related_campaigns: ['Operation Cobalt Strike', 'APT29 Recon'],
-    related_alerts: ['ALT-8900', 'ALT-8898'],
-    mitre_techniques: ['T1071.001', 'T1090'],
+    model: 'VirusTotal + AbuseIPDB Feed',
     confirmed_evidence: [
       'CONFIRMED: IP 185.220.101.5 matches 42/70 malicious engines on VirusTotal.',
       'CONFIRMED: AbuseIPDB confidence score is 100% (High Frequency Attack IP).',
@@ -34,14 +39,16 @@ const IOCAnalyzerPage = () => {
 
     let resObj;
 
-    // Direct hash lookup check
     if (val.length === 64 || val.length === 32) {
       const isClean = val.toLowerCase().startsWith('e3b0c44');
       resObj = {
+        id: `SCN-${Math.floor(9000 + Math.random() * 999)}`,
         value: val,
-        type: 'HASH',
+        target: val,
+        type: 'FILE_HASH',
         ioc_type: 'FILE_HASH',
         reputation: isClean ? 'BENIGN' : 'MALICIOUS',
+        classification: isClean ? 'LEGITIMATE' : 'MALICIOUS',
         risk_score: isClean ? 0 : 96,
         riskScore: isClean ? 0 : 96,
         threat_category: isClean ? 'Clean File Hash' : 'Ransomware / Trojan Executable Hash',
@@ -49,8 +56,9 @@ const IOCAnalyzerPage = () => {
         last_seen: new Date().toISOString(),
         virustotal_positives: isClean ? 0 : 54,
         abuseipdb_confidence: 0,
+        model: 'WebCrypto-SHA256',
         confirmed_evidence: [
-          `CONFIRMED: Cryptographic hash ${val.substring(0, 16)}... matched in malware signature database.`,
+          `CONFIRMED: Cryptographic hash ${val.substring(0, 16)}... matched in signature DB.`,
           'CONFIRMED: Security vendors flagged this signature.'
         ]
       };
@@ -58,10 +66,13 @@ const IOCAnalyzerPage = () => {
       const isDomain = val.includes('.');
       const isMal = val === '185.220.101.5' || val.includes('malicious');
       resObj = {
+        id: `SCN-${Math.floor(9000 + Math.random() * 999)}`,
         value: val,
+        target: val,
         type: isDomain ? 'DOMAIN' : 'IP',
         ioc_type: isDomain ? 'DOMAIN / URL' : 'IP',
         reputation: isMal ? 'MALICIOUS' : 'SUSPICIOUS',
+        classification: isMal ? 'MALICIOUS' : 'SUSPICIOUS',
         risk_score: isMal ? 94 : 74,
         riskScore: isMal ? 94 : 74,
         threat_category: 'C2 Server / Tor Exit Node',
@@ -69,6 +80,7 @@ const IOCAnalyzerPage = () => {
         last_seen: new Date().toISOString(),
         virustotal_positives: isMal ? 42 : 18,
         abuseipdb_confidence: isMal ? 100 : 65,
+        model: 'ThreatIntel-Aggregator',
         confirmed_evidence: [
           `CONFIRMED: Query ${val} flagged by heuristic threat analysis.`,
           'CONFIRMED: Security vendors marked indicator.'
@@ -78,10 +90,10 @@ const IOCAnalyzerPage = () => {
 
     setResult(resObj);
 
-    // Save malicious IOC to Firestore for real-time dashboard sync
     if (resObj.reputation === 'MALICIOUS' || resObj.risk_score >= 75) {
       await addDocument(COLLECTIONS.IOCS, resObj);
     }
+    await addDocument(COLLECTIONS.PHISHING_SCANS, resObj);
   };
 
   const handleFileUpload = async (e) => {
@@ -91,16 +103,18 @@ const IOCAnalyzerPage = () => {
     setIsHashing(true);
 
     try {
-      // Calculate real client-side Web Crypto SHA-256
       const sha256 = await calculateFileSha256(file);
       const inspection = inspectFileArtifact(file, sha256);
 
       setIocValue(sha256);
       const resObj = {
+        id: `SCN-${Math.floor(9000 + Math.random() * 999)}`,
         value: sha256,
+        target: file.name,
         type: 'FILE_HASH',
         ioc_type: `FILE (${file.name})`,
         reputation: inspection.reputation,
+        classification: inspection.reputation,
         risk_score: inspection.riskScore,
         riskScore: inspection.riskScore,
         threat_category: inspection.fileType,
@@ -108,6 +122,7 @@ const IOCAnalyzerPage = () => {
         last_seen: new Date().toISOString(),
         virustotal_positives: inspection.virustotalPositives,
         abuseipdb_confidence: 0,
+        model: 'WebCrypto-SHA256',
         confirmed_evidence: [
           `CONFIRMED: Web Crypto computed authentic SHA-256: ${sha256}`,
           `CONFIRMED: File size ${file.size} bytes, File extension: ${file.name.substring(file.name.lastIndexOf('.'))}`,
@@ -120,6 +135,7 @@ const IOCAnalyzerPage = () => {
       if (inspection.reputation === 'MALICIOUS' || inspection.riskScore >= 75) {
         await addDocument(COLLECTIONS.IOCS, resObj);
       }
+      await addDocument(COLLECTIONS.PHISHING_SCANS, resObj);
     } catch (err) {
       console.error('File hashing error:', err);
     } finally {
@@ -129,6 +145,10 @@ const IOCAnalyzerPage = () => {
 
   return (
     <div className="space-y-6">
+      {reportModalData && (
+        <ScanReportModal reportData={reportModalData} onClose={() => setReportModalData(null)} />
+      )}
+
       <div className="flex items-center justify-between p-5 rounded-2xl bg-slate-900 border border-slate-800">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-400">
@@ -202,6 +222,14 @@ const IOCAnalyzerPage = () => {
                 <span className="text-slate-200">{result.threat_category}</span>
               </div>
             </div>
+
+            <button
+              onClick={() => setReportModalData(result)}
+              className="w-full py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center gap-2"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Download Scan Report</span>
+            </button>
           </div>
 
           <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">

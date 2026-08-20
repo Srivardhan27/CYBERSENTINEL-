@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { MailWarning, Sparkles, Upload } from 'lucide-react';
+import { MailWarning, Sparkles, Upload, Printer } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import ScanReportModal from '../components/ScanReportModal';
 import { addDocument, COLLECTIONS } from '../firebase/firestoreService';
 
 const PhishGuardEmailPage = () => {
   const [sender, setSender] = useState('admin-update@external-secure-portal.com');
   const [subject, setSubject] = useState('URGENT: Executive Account Password Reset Required');
   const [body, setBody] = useState('Dear User,\nYour corporate email account has been flagged for non-compliance. Please immediately verify your credentials at http://external-secure-portal.com/login to prevent suspension.\nRegards,\nIT Security');
+  const [reportModalData, setReportModalData] = useState(null);
+
   const [result, setResult] = useState({
     classification: 'PHISHING',
     risk_score: 95,
@@ -21,7 +24,7 @@ const PhishGuardEmailPage = () => {
       'CONFIRMED: Embedded hyperlink solicit: http://external-secure-portal.com/login',
       'CONFIRMED: High confidence social engineering pressure signals detected in subject and body.'
     ],
-    model_used: 'RoBERTa-Security-V2 + TF-IDF Heuristic Ensemble',
+    model: 'RoBERTa-Security-V2 + TF-IDF Heuristic Ensemble',
   });
 
   const handleAnalyze = async () => {
@@ -59,6 +62,7 @@ const PhishGuardEmailPage = () => {
     const isPhishing = score >= 50;
 
     const resObj = {
+      id: `SCN-${Math.floor(9000 + Math.random() * 999)}`,
       target: sender,
       type: 'EMAIL',
       classification: isPhishing ? 'PHISHING' : 'LEGITIMATE',
@@ -67,12 +71,12 @@ const PhishGuardEmailPage = () => {
       confidence: isPhishing ? 0.98 : 0.92,
       reasons: reasons.length ? reasons : ['Email conforms to standard internal operational formatting.'],
       confirmed_evidence: evidence.length ? evidence : ['CONFIRMED: Clean header alignment.'],
+      model: 'RoBERTa-Security-V2',
+      timestamp: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     };
 
     setResult(resObj);
-
-    // Save scan to Firestore for real-time dashboard updates
     await addDocument(COLLECTIONS.PHISHING_SCANS, resObj);
   };
 
@@ -95,6 +99,10 @@ const PhishGuardEmailPage = () => {
 
   return (
     <div className="space-y-6">
+      {reportModalData && (
+        <ScanReportModal reportData={reportModalData} onClose={() => setReportModalData(null)} />
+      )}
+
       <div className="flex items-center justify-between p-5 rounded-2xl bg-slate-900 border border-slate-800">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-400">
@@ -162,7 +170,19 @@ const PhishGuardEmailPage = () => {
         </div>
 
         <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <h3 className="text-sm font-bold font-mono text-white">PhishGuard AI Analysis Report</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold font-mono text-white">PhishGuard AI Analysis Report</h3>
+            {result && (
+              <button
+                onClick={() => setReportModalData(result)}
+                className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Download Scan Report</span>
+              </button>
+            )}
+          </div>
+
           {result && (
             <div className="space-y-4">
               <div className="flex items-center justify-between p-4 rounded-xl bg-slate-950 border border-slate-800">

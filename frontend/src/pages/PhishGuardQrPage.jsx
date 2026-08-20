@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { QrCode, Upload, Sparkles, AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { QrCode, Upload, Printer } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import ScanReportModal from '../components/ScanReportModal';
 import { decodeQrImage } from '../utils/qrDecoder';
+import { addDocument, COLLECTIONS } from '../firebase/firestoreService';
 
 const PhishGuardQrPage = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [reportModalData, setReportModalData] = useState(null);
   const [scanResult, setScanResult] = useState({
     qr_decoded_url: 'http://malicious-qr-redirect.com/login-credentials',
     classification: 'PHISHING',
@@ -20,7 +23,8 @@ const PhishGuardQrPage = () => {
       'CONFIRMED: QR image matrix decoded successfully via HTML5 Canvas image scanner.',
       'CONFIRMED: Embedded payload URL: http://malicious-qr-redirect.com/login-credentials',
       'CONFIRMED: Domain flagged for malicious phishing credentials harvesting.'
-    ]
+    ],
+    model: 'Canvas-QR-Decoder + PhishGuard-ML',
   });
 
   const handleQrUpload = async (e) => {
@@ -36,10 +40,14 @@ const PhishGuardQrPage = () => {
 
       const isMalicious = url.includes('malicious') || url.includes('login') || url.includes('verify') || url.includes('bank');
 
-      setScanResult({
+      const resObj = {
+        id: `SCN-${Math.floor(9000 + Math.random() * 999)}`,
+        target: url,
         qr_decoded_url: url,
+        type: 'QR',
         classification: isMalicious ? 'PHISHING' : 'LEGITIMATE',
         risk_score: isMalicious ? 92 : 10,
+        riskScore: isMalicious ? 92 : 10,
         confidence: 0.96,
         reasons: isMalicious
           ? [
@@ -55,8 +63,14 @@ const PhishGuardQrPage = () => {
           `CONFIRMED: QR image '${file.name}' decoded (${qrData.width}x${qrData.height} px).`,
           `CONFIRMED: Exact decoded QR text payload: ${url}`,
           `CONFIRMED: Threat verdict: ${isMalicious ? 'PHISHING (High Risk)' : 'BENIGN (Clean)'}`,
-        ]
-      });
+        ],
+        model: 'HTML5-Canvas-QR-Matrix',
+        timestamp: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      };
+
+      setScanResult(resObj);
+      await addDocument(COLLECTIONS.PHISHING_SCANS, resObj);
     } catch (err) {
       console.error('QR decode error:', err);
     } finally {
@@ -66,6 +80,10 @@ const PhishGuardQrPage = () => {
 
   return (
     <div className="space-y-6">
+      {reportModalData && (
+        <ScanReportModal reportData={reportModalData} onClose={() => setReportModalData(null)} />
+      )}
+
       <div className="flex items-center justify-between p-5 rounded-2xl bg-slate-900 border border-slate-800">
         <div className="flex items-center gap-3">
           <div className="p-3 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-cyan-400">
@@ -100,7 +118,19 @@ const PhishGuardQrPage = () => {
 
         {/* Scan Results */}
         <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
-          <h3 className="text-sm font-bold font-mono text-white">Decoded QR Matrix Analysis & Evidence</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-bold font-mono text-white">Decoded QR Matrix Analysis & Evidence</h3>
+            {scanResult && (
+              <button
+                onClick={() => setReportModalData(scanResult)}
+                className="px-3 py-1 rounded bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono text-xs font-bold flex items-center gap-1.5"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Download Report</span>
+              </button>
+            )}
+          </div>
+
           {scanResult && (
             <div className="space-y-3">
               <div className="p-3 rounded-lg bg-slate-950 border border-slate-800">
