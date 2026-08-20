@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldAlert,
@@ -17,7 +17,9 @@ import {
   Globe2,
   Zap,
   Trash2,
-  CheckCircle2
+  CheckCircle2,
+  Search,
+  Printer
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -35,7 +37,9 @@ import {
 } from 'recharts';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
+import ScanReportModal from '../components/ScanReportModal';
 import useDashboardMetrics from '../hooks/useDashboardMetrics';
+import { executeRealTimeScan } from '../api/scanService';
 import { clearAllFirestoreMetrics } from '../firebase/firestoreService';
 
 const MOCK_ATTACK_STREAMS = [
@@ -49,15 +53,29 @@ const DashboardPage = () => {
   // Real-time 0-Base Firestore Dashboard Metrics Hook
   const metrics = useDashboardMetrics();
 
+  const [scanInput, setScanInput] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [activeActions, setActiveActions] = useState([]);
+  const [reportModalData, setReportModalData] = useState(null);
 
-  // Auto-clear pre-existing test documents on initial load to guarantee pure 0-base initial state
-  useEffect(() => {
-    clearAllFirestoreMetrics();
-  }, []);
+  const handleQuickScan = async (e) => {
+    e.preventDefault();
+    if (!scanInput.trim()) return;
+
+    setIsScanning(true);
+    try {
+      const res = await executeRealTimeScan({ input: scanInput, scanType: 'URL_IP' });
+      setReportModalData(res);
+      setScanInput('');
+    } catch (err) {
+      console.error('Scan error:', err);
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -108,6 +126,10 @@ const DashboardPage = () => {
 
   return (
     <div className="space-y-6">
+      {reportModalData && (
+        <ScanReportModal reportData={reportModalData} onClose={() => setReportModalData(null)} />
+      )}
+
       {/* Top Cyber Command Header */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-[#0c182b] to-slate-900 border border-cyan-500/30 shadow-2xl relative overflow-hidden">
         <div className="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-cyan-500/5 blur-3xl pointer-events-none" />
@@ -156,6 +178,28 @@ const DashboardPage = () => {
           </div>
         </div>
       </div>
+
+      {/* REAL-TIME SCAN INPUT TRIGGER BAR */}
+      <form onSubmit={handleQuickScan} className="p-4 rounded-xl bg-slate-900/90 border border-cyan-500/40 flex flex-col sm:flex-row gap-3 items-center glow-cyan">
+        <div className="relative flex-1 w-full">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-cyan-400" />
+          <input
+            type="text"
+            value={scanInput}
+            onChange={(e) => setScanInput(e.target.value)}
+            placeholder="Submit URL, IP Address, or Phishing Link (e.g. 185.220.101.5 or http://phishing-gate.com)..."
+            className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-10 pr-4 py-2.5 text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={isScanning}
+          className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-lg shadow-cyan-500/20 whitespace-nowrap"
+        >
+          {isScanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+          <span>Run Threat Scan & Update Dashboard</span>
+        </button>
+      </form>
 
       {/* 8 Real-Time 0-Base Scoreboard Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

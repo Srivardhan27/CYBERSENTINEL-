@@ -1,48 +1,26 @@
 import React, { useState } from 'react';
-import { Globe, Sparkles, Printer } from 'lucide-react';
+import { Globe, Sparkles, Printer, RefreshCw } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import ScanReportModal from '../components/ScanReportModal';
-import { addDocument, COLLECTIONS } from '../firebase/firestoreService';
+import { executeRealTimeScan } from '../api/scanService';
 
 const PhishGuardUrlPage = () => {
   const [urlInput, setUrlInput] = useState('http://185.220.101.5/login-verify-account-update');
   const [result, setResult] = useState(null);
+  const [isScanning, setIsScanning] = useState(false);
   const [reportModalData, setReportModalData] = useState(null);
 
   const handleAnalyze = async () => {
-    const isMal = urlInput.includes('185') || urlInput.includes('login') || urlInput.includes('verify') || urlInput.includes('bank');
-
-    const resObj = {
-      id: `SCN-${Math.floor(9000 + Math.random() * 999)}`,
-      target: urlInput,
-      type: 'URL',
-      classification: isMal ? 'PHISHING' : 'LEGITIMATE',
-      risk_score: isMal ? 92 : 12,
-      riskScore: isMal ? 92 : 12,
-      confidence: 0.98,
-      reasons: isMal
-        ? [
-            'Raw IP host address or credential keyword patterns detected',
-            'Typosquatting & credential harvesting keywords: "login", "verify", "account"',
-            'URL string length exceeds safety threshold (>75 chars)',
-          ]
-        : ['Clean domain structure and protocol configuration.'],
-      confirmed_evidence: isMal
-        ? ['CONFIRMED: Flagged by Random Forest URL feature vector classifier.']
-        : ['CONFIRMED: Domain verified clean.'],
-      features: {
-        length: urlInput.length,
-        hasIP: urlInput.includes('185'),
-        subdomains: urlInput.split('.').length - 1,
-        entropy: 4.82,
-      },
-      model: 'RandomForest-18-FeatureVectors',
-      timestamp: new Date().toISOString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    setResult(resObj);
-    await addDocument(COLLECTIONS.PHISHING_SCANS, resObj);
+    if (!urlInput.trim()) return;
+    setIsScanning(true);
+    try {
+      const resObj = await executeRealTimeScan({ input: urlInput, scanType: 'URL' });
+      setResult(resObj);
+    } catch (err) {
+      console.error('URL scan error:', err);
+    } finally {
+      setIsScanning(false);
+    }
   };
 
   return (
@@ -74,9 +52,10 @@ const PhishGuardUrlPage = () => {
           />
           <button
             onClick={handleAnalyze}
+            disabled={isScanning}
             className="px-6 py-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center gap-2"
           >
-            <Sparkles className="w-4 h-4" />
+            {isScanning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             <span>Classify URL</span>
           </button>
         </div>
@@ -103,10 +82,12 @@ const PhishGuardUrlPage = () => {
           </div>
 
           <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
-            <h3 className="text-xs font-mono text-slate-400 uppercase">Engineered Feature Vectors</h3>
-            <pre className="p-3 rounded-lg bg-slate-950 text-xs font-mono text-cyan-300">
-              {JSON.stringify(result.features, null, 2)}
-            </pre>
+            <h3 className="text-xs font-mono text-slate-400 uppercase">Engineered Threat Evidence</h3>
+            <div className="p-3 rounded-lg bg-slate-950 text-xs font-mono text-cyan-300 space-y-1">
+              {result.confirmed_evidence.map((ev, i) => (
+                <p key={i}>✔ {ev}</p>
+              ))}
+            </div>
           </div>
         </div>
       )}
