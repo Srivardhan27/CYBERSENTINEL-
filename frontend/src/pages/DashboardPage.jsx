@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldAlert,
@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Globe2,
   Zap,
+  Trash2,
   CheckCircle2
 } from 'lucide-react';
 import {
@@ -35,6 +36,7 @@ import {
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
 import useDashboardMetrics from '../hooks/useDashboardMetrics';
+import { clearAllFirestoreMetrics } from '../firebase/firestoreService';
 
 const MOCK_ATTACK_STREAMS = [
   { id: 'ATK-101', origin: '185.220.101.5 (Tor Node)', target: '10.0.0.12 (PROD-DB-01)', vector: 'SSH Brute Force (T1110)', status: 'ACTIVE BLOCKED', severity: 'CRITICAL' },
@@ -49,11 +51,23 @@ const DashboardPage = () => {
 
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
   const [activeActions, setActiveActions] = useState([]);
+
+  // Auto-clear pre-existing test documents on initial load to guarantee pure 0-base initial state
+  useEffect(() => {
+    clearAllFirestoreMetrics();
+  }, []);
 
   const handleSync = () => {
     setIsSyncing(true);
     setTimeout(() => setIsSyncing(false), 500);
+  };
+
+  const handleResetMetrics = async () => {
+    setIsClearing(true);
+    await clearAllFirestoreMetrics();
+    setTimeout(() => setIsClearing(false), 400);
   };
 
   const handleTriggerAction = (actionName) => {
@@ -116,6 +130,16 @@ const DashboardPage = () => {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleResetMetrics}
+            disabled={isClearing}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-400 text-xs font-mono font-bold transition-all"
+            title="Wipe all database records to reset every scoreboard metric to 0"
+          >
+            {isClearing ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            <span>Reset All Metrics to 0</span>
+          </button>
+
           <button
             onClick={handleSync}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-200 transition-colors"

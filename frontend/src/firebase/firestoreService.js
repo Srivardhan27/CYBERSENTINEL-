@@ -39,7 +39,7 @@ export const getCollectionDocs = async (collectionName, maxItems = 50) => {
     const colRef = collection(db, collectionName);
     const q = query(colRef, limit(maxItems));
     const snapshot = await getDocs(q);
-    return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    return snapshot.docs.map((doc) => ({ _docId: doc.id, id: doc.id, ...doc.data() }));
   } catch (error) {
     console.warn(`Firestore read warning for ${collectionName}:`, error.message);
     return [];
@@ -47,22 +47,24 @@ export const getCollectionDocs = async (collectionName, maxItems = 50) => {
 };
 
 // Real-Time Document Listener
-export const subscribeToCollection = (collectionName, callback, maxItems = 20) => {
+export const subscribeToCollection = (collectionName, callback, maxItems = 50) => {
   try {
     const colRef = collection(db, collectionName);
     const q = query(colRef, limit(maxItems));
     return onSnapshot(
       q,
       (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        const data = snapshot.docs.map((doc) => ({ _docId: doc.id, id: doc.id, ...doc.data() }));
         callback(data);
       },
       (error) => {
         console.warn(`Firestore real-time listener fallback for ${collectionName}:`, error.message);
+        callback([]);
       }
     );
   } catch (error) {
     console.warn(`Error setting up real-time listener for ${collectionName}`);
+    callback([]);
     return () => {};
   }
 };
@@ -77,11 +79,36 @@ export const addDocument = async (collectionName, data) => {
       updatedAt: new Date().toISOString(),
     };
     const docRef = await addDoc(colRef, payload);
-    return { id: docRef.id, ...payload };
+    return { id: docRef.id, _docId: docRef.id, ...payload };
   } catch (error) {
     console.warn(`Firestore write fallback for ${collectionName}:`, error.message);
     return { id: `sim-${Date.now()}`, ...data, createdAt: new Date().toISOString() };
   }
+};
+
+// Clear Collection Helper
+export const clearCollectionDocs = async (collectionName) => {
+  try {
+    const colRef = collection(db, collectionName);
+    const snapshot = await getDocs(colRef);
+    const deletePromises = snapshot.docs.map((d) => deleteDoc(doc(db, collectionName, d.id)));
+    await Promise.all(deletePromises);
+    return true;
+  } catch (error) {
+    console.warn(`Firestore clear error for ${collectionName}:`, error.message);
+    return false;
+  }
+};
+
+// Clear All Firestore Database Telemetry Documents to Reset to Pure 0
+export const clearAllFirestoreMetrics = async () => {
+  await clearCollectionDocs(COLLECTIONS.ASSETS);
+  await clearCollectionDocs(COLLECTIONS.ALERTS);
+  await clearCollectionDocs(COLLECTIONS.INCIDENTS);
+  await clearCollectionDocs(COLLECTIONS.VULNERABILITIES);
+  await clearCollectionDocs(COLLECTIONS.IOCS);
+  await clearCollectionDocs(COLLECTIONS.PHISHING_SCANS);
+  return true;
 };
 
 // Audit Log Helper

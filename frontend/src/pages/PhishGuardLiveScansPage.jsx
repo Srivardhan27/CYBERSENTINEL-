@@ -1,19 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, MailWarning, Link2, QrCode, Globe, MessageSquare, PhoneCall, FileCode, RefreshCw, Plus, ShieldAlert, CheckCircle2, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Sparkles, MailWarning, Link2, QrCode, Globe, MessageSquare, PhoneCall, FileCode, RefreshCw, Plus, ShieldAlert, CheckCircle2, AlertTriangle, Trash2 } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell } from 'recharts';
 import StatusBadge from '../components/StatusBadge';
-import { subscribeToCollection, addDocument, COLLECTIONS } from '../firebase/firestoreService';
+import { subscribeToCollection, addDocument, clearAllFirestoreMetrics, COLLECTIONS } from '../firebase/firestoreService';
 
 const PhishGuardLiveScansPage = () => {
   const [scans, setScans] = useState([]);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
 
   useEffect(() => {
+    // Clear initial test telemetry so live scan metrics start strictly at 0
+    clearAllFirestoreMetrics();
+
     const unsub = subscribeToCollection(COLLECTIONS.PHISHING_SCANS, (data) => {
       setScans(data || []);
     });
     return () => unsub();
   }, []);
+
+  const handleResetScans = async () => {
+    setIsClearing(true);
+    await clearAllFirestoreMetrics();
+    setTimeout(() => setIsClearing(false), 400);
+  };
 
   // Real-Time Derived Counters (Default: 0 if no scans exist)
   const totalScans = scans.length;
@@ -111,14 +121,25 @@ const PhishGuardLiveScansPage = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleSimulateScan}
-          disabled={isSimulating}
-          className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
-        >
-          {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-          <span>Submit Live Scan (+1)</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleResetScans}
+            disabled={isClearing}
+            className="px-3 py-2 rounded-lg bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold flex items-center gap-1.5 transition-all"
+          >
+            {isClearing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            <span>Reset to 0</span>
+          </button>
+
+          <button
+            onClick={handleSimulateScan}
+            disabled={isSimulating}
+            className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-mono font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-cyan-500/20"
+          >
+            {isSimulating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+            <span>Submit Live Scan (+1)</span>
+          </button>
+        </div>
       </div>
 
       {/* 4 Core Detection Scorecards (0 by default) */}
