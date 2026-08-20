@@ -27,6 +27,7 @@ import PhishGuardQrPage from './pages/PhishGuardQrPage';
 import PhishGuardWebsitePage from './pages/PhishGuardWebsitePage';
 import PhishGuardSmsPage from './pages/PhishGuardSmsPage';
 import PhishGuardVishingPage from './pages/PhishGuardVishingPage';
+import PhishGuardLiveScansPage from './pages/PhishGuardLiveScansPage';
 
 function App() {
   return (
@@ -55,8 +56,9 @@ function App() {
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
 
-            {/* PhishGuard AI Routes */}
-            <Route path="phishguard" element={<PhishGuardEmailPage />} />
+            {/* PhishGuard AI Suite Routes */}
+            <Route path="phishguard" element={<PhishGuardLiveScansPage />} />
+            <Route path="phishguard/live-scans" element={<PhishGuardLiveScansPage />} />
             <Route path="phishguard/email" element={<PhishGuardEmailPage />} />
             <Route path="phishguard/url" element={<PhishGuardUrlPage />} />
             <Route path="phishguard/qr" element={<PhishGuardQrPage />} />

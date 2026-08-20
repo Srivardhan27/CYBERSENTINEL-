@@ -48,7 +48,7 @@ const Sidebar = ({ isMobileOpen, setIsMobileOpen }) => {
   ];
 
   const phishGuardSubRoutes = [
-    { name: 'Overview', path: '/phishguard', icon: Sparkles },
+    { name: 'Live Scan Monitor', path: '/phishguard/live-scans', icon: Sparkles },
     { name: 'Email Phishing', path: '/phishguard/email', icon: MailWarning },
     { name: 'URL Phishing', path: '/phishguard/url', icon: Globe },
     { name: 'Website Analyzer', path: '/phishguard/website', icon: Globe2 },
