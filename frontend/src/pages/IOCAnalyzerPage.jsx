@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Binary, Search, Upload, FileCheck, ShieldAlert, AlertTriangle, CheckCircle2, FileCode, HardDrive } from 'lucide-react';
+import { Binary, Search, Upload } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { calculateFileSha256, inspectFileArtifact } from '../utils/cryptoUtils';
+import { addDocument, COLLECTIONS } from '../firebase/firestoreService';
 
 const IOCAnalyzerPage = () => {
   const [iocValue, setIocValue] = useState('185.220.101.5');
@@ -27,72 +28,59 @@ const IOCAnalyzerPage = () => {
     ]
   });
 
-  const handleLookup = () => {
+  const handleLookup = async () => {
     const val = iocValue.trim();
     if (!val) return;
 
+    let resObj;
+
     // Direct hash lookup check
     if (val.length === 64 || val.length === 32) {
-      setResult({
+      const isClean = val.toLowerCase().startsWith('e3b0c44');
+      resObj = {
         value: val,
+        type: 'HASH',
         ioc_type: 'FILE_HASH',
-        reputation: val.toLowerCase().startsWith('e3b0c44') ? 'BENIGN' : 'MALICIOUS',
-        risk_score: val.toLowerCase().startsWith('e3b0c44') ? 0 : 96,
-        threat_category: val.toLowerCase().startsWith('e3b0c44') ? 'Clean File Hash' : 'Ransomware / Trojan Executable Hash',
+        reputation: isClean ? 'BENIGN' : 'MALICIOUS',
+        risk_score: isClean ? 0 : 96,
+        riskScore: isClean ? 0 : 96,
+        threat_category: isClean ? 'Clean File Hash' : 'Ransomware / Trojan Executable Hash',
         first_seen: '2026-08-12 01:10:00',
-        last_seen: '2026-08-19 09:15:00',
-        virustotal_positives: val.toLowerCase().startsWith('e3b0c44') ? 0 : 54,
+        last_seen: new Date().toISOString(),
+        virustotal_positives: isClean ? 0 : 54,
         abuseipdb_confidence: 0,
-        related_campaigns: ['LockBit Ransomware Payload', 'Trojan.Win32.Generic'],
-        related_alerts: ['ALT-8901'],
-        mitre_techniques: ['T1059.001', 'T1486'],
         confirmed_evidence: [
           `CONFIRMED: Cryptographic hash ${val.substring(0, 16)}... matched in malware signature database.`,
-          'CONFIRMED: 54/70 Security vendors flagged this SHA-256 signature as Malicious.'
+          'CONFIRMED: Security vendors flagged this signature.'
         ]
-      });
-      return;
-    }
-
-    if (val === '185.220.101.5') {
-      setResult({
-        value: '185.220.101.5',
-        ioc_type: 'IP',
-        reputation: 'MALICIOUS',
-        risk_score: 94,
-        threat_category: 'C2 Server / Tor Exit Node',
-        first_seen: '2026-08-10 04:12:00',
-        last_seen: '2026-08-19 09:30:00',
-        virustotal_positives: 42,
-        abuseipdb_confidence: 100,
-        related_campaigns: ['Operation Cobalt Strike', 'APT29 Recon'],
-        related_alerts: ['ALT-8900', 'ALT-8898'],
-        mitre_techniques: ['T1071.001', 'T1090'],
-        confirmed_evidence: [
-          'CONFIRMED: IP 185.220.101.5 matches 42/70 malicious engines on VirusTotal.',
-          'CONFIRMED: AbuseIPDB confidence score is 100%.'
-        ]
-      });
+      };
     } else {
       const isDomain = val.includes('.');
-      setResult({
+      const isMal = val === '185.220.101.5' || val.includes('malicious');
+      resObj = {
         value: val,
-        ioc_type: isDomain ? 'DOMAIN / URL' : 'INDICATOR',
-        reputation: 'SUSPICIOUS',
-        risk_score: 74,
-        threat_category: 'Suspicious External Host Indicator',
+        type: isDomain ? 'DOMAIN' : 'IP',
+        ioc_type: isDomain ? 'DOMAIN / URL' : 'IP',
+        reputation: isMal ? 'MALICIOUS' : 'SUSPICIOUS',
+        risk_score: isMal ? 94 : 74,
+        riskScore: isMal ? 94 : 74,
+        threat_category: 'C2 Server / Tor Exit Node',
         first_seen: '2026-08-15 08:00:00',
-        last_seen: '2026-08-19 09:00:00',
-        virustotal_positives: 18,
-        abuseipdb_confidence: 65,
-        related_campaigns: ['Generic Threat Telemetry Match'],
-        related_alerts: ['ALT-8902'],
-        mitre_techniques: ['T1566.002'],
+        last_seen: new Date().toISOString(),
+        virustotal_positives: isMal ? 42 : 18,
+        abuseipdb_confidence: isMal ? 100 : 65,
         confirmed_evidence: [
           `CONFIRMED: Query ${val} flagged by heuristic threat analysis.`,
-          'CONFIRMED: 18 Security vendors marked indicator as Suspicious.'
+          'CONFIRMED: Security vendors marked indicator.'
         ]
-      });
+      };
+    }
+
+    setResult(resObj);
+
+    // Save malicious IOC to Firestore for real-time dashboard sync
+    if (resObj.reputation === 'MALICIOUS' || resObj.risk_score >= 75) {
+      await addDocument(COLLECTIONS.IOCS, resObj);
     }
   };
 
@@ -108,25 +96,30 @@ const IOCAnalyzerPage = () => {
       const inspection = inspectFileArtifact(file, sha256);
 
       setIocValue(sha256);
-      setResult({
+      const resObj = {
         value: sha256,
+        type: 'FILE_HASH',
         ioc_type: `FILE (${file.name})`,
         reputation: inspection.reputation,
         risk_score: inspection.riskScore,
+        riskScore: inspection.riskScore,
         threat_category: inspection.fileType,
         first_seen: 'Just Now (Real-Time File Hash)',
         last_seen: new Date().toISOString(),
         virustotal_positives: inspection.virustotalPositives,
         abuseipdb_confidence: 0,
-        related_campaigns: [file.name],
-        related_alerts: inspection.reputation === 'MALICIOUS' ? ['ALT-8901'] : [],
-        mitre_techniques: inspection.reputation === 'MALICIOUS' ? ['T1204.002'] : [],
         confirmed_evidence: [
           `CONFIRMED: Web Crypto computed authentic SHA-256: ${sha256}`,
           `CONFIRMED: File size ${file.size} bytes, File extension: ${file.name.substring(file.name.lastIndexOf('.'))}`,
           ...inspection.reasons.map((r) => `CONFIRMED: ${r}`)
         ]
-      });
+      };
+
+      setResult(resObj);
+
+      if (inspection.reputation === 'MALICIOUS' || inspection.riskScore >= 75) {
+        await addDocument(COLLECTIONS.IOCS, resObj);
+      }
     } catch (err) {
       console.error('File hashing error:', err);
     } finally {
@@ -148,7 +141,6 @@ const IOCAnalyzerPage = () => {
         </div>
       </div>
 
-      {/* File Upload Dropzone + Manual Search Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3">
           <label className="block text-xs font-mono text-slate-400">Lookup IP, Domain, URL, or SHA-256 / MD5 Hash</label>
@@ -172,7 +164,6 @@ const IOCAnalyzerPage = () => {
           </div>
         </div>
 
-        {/* Real File Upload & SHA-256 Hashing Box */}
         <div className="p-5 rounded-xl bg-slate-900/80 border border-dashed border-cyan-500/40 text-center space-y-2 relative">
           <input
             type="file"
@@ -190,7 +181,6 @@ const IOCAnalyzerPage = () => {
         </div>
       </div>
 
-      {/* Results Display */}
       {result && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="p-5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">

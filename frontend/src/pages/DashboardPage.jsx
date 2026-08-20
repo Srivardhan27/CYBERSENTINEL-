@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldAlert,
@@ -14,10 +14,8 @@ import {
   RefreshCw,
   Clock,
   ChevronRight,
-  Radio,
   Globe2,
   Zap,
-  Lock,
   CheckCircle2
 } from 'lucide-react';
 import {
@@ -36,8 +34,9 @@ import {
 } from 'recharts';
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
+import useDashboardMetrics from '../hooks/useDashboardMetrics';
+import { seedInitialTelemetryIfEmpty } from '../utils/firestoreSeeder';
 import {
-  MOCK_DASHBOARD_STATS,
   MOCK_SEVERITY_BREAKDOWN,
   MOCK_ALERT_TIMELINE,
   MOCK_MITRE_TECHNIQUES,
@@ -52,10 +51,17 @@ const MOCK_ATTACK_STREAMS = [
 ];
 
 const DashboardPage = () => {
+  // Real-time Firestore Dashboard Metrics Hook
+  const metrics = useDashboardMetrics();
+
   const [filterSeverity, setFilterSeverity] = useState('ALL');
-  const [postureLevel, setPostureLevel] = useState('ELEVATED');
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeActions, setActiveActions] = useState([]);
+
+  // Auto-seed starting telemetry if database is empty
+  useEffect(() => {
+    seedInitialTelemetryIfEmpty();
+  }, []);
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -73,6 +79,31 @@ const DashboardPage = () => {
     return event.severity === filterSeverity;
   });
 
+  // Scoreboard Secondary Values Logic
+  const assetsSecondaryText = metrics.loading
+    ? '—'
+    : metrics.assetsThisWeek > 0
+    ? `+${metrics.assetsThisWeek} this week`
+    : 'No new assets this week';
+
+  const alertsSecondaryText = metrics.loading
+    ? '—'
+    : metrics.alertsLastHour > 0
+    ? `+${metrics.alertsLastHour} in last hour`
+    : 'No new alerts in last hour';
+
+  const incidentsSubtitle = metrics.loading
+    ? '—'
+    : metrics.openIncidents > 0
+    ? `${metrics.openIncidents} active SOC escalation${metrics.openIncidents === 1 ? '' : 's'}`
+    : 'No active SOC escalations';
+
+  const phishingSecondaryText = metrics.loading
+    ? '—'
+    : metrics.phishingScans > 0
+    ? `${metrics.phishingThreatsBlocked} Phishing Attacks Blocked`
+    : 'No phishing scans recorded';
+
   return (
     <div className="space-y-6">
       {/* Top Cyber Command Header */}
@@ -85,7 +116,7 @@ const DashboardPage = () => {
               LIVE SOC STREAM
             </span>
             <span className="text-xs font-mono text-slate-400">
-              System Sync: {new Date().toLocaleTimeString()}
+              Last updated: {new Date().toLocaleTimeString()}
             </span>
           </div>
           <h2 className="text-2xl font-bold font-mono text-white tracking-tight uppercase">
@@ -97,26 +128,6 @@ const DashboardPage = () => {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-          {/* Posture Switcher */}
-          <div className="flex items-center gap-1.5 p-1 rounded-lg bg-slate-950 border border-slate-800">
-            <span className="text-[10px] font-mono text-slate-400 px-2 uppercase">Posture:</span>
-            {['NORMAL', 'ELEVATED', 'SEVERE'].map((lvl) => (
-              <button
-                key={lvl}
-                onClick={() => setPostureLevel(lvl)}
-                className={`px-2.5 py-1 rounded text-[10px] font-mono font-bold transition-all ${
-                  postureLevel === lvl
-                    ? lvl === 'SEVERE'
-                      ? 'bg-rose-600 text-white shadow-lg shadow-rose-500/30'
-                      : 'bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/30'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {lvl}
-              </button>
-            ))}
-          </div>
-
           <button
             onClick={handleSync}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-200 transition-colors"
@@ -127,70 +138,93 @@ const DashboardPage = () => {
 
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold glow-red">
             <Activity className="w-3.5 h-3.5 animate-pulse" />
-            <span>RISK SCORE: 78/100</span>
+            <span>
+              RISK SCORE: {metrics.loading ? '—' : `${metrics.riskScore}/100`}
+            </span>
           </div>
         </div>
       </div>
 
-      {/* KPI Stats Grid */}
+      {/* 8 Real-Time Scoreboard Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* 1. TOTAL MONITORED ASSETS */}
         <StatCard
-          title="Total Monitored Assets"
-          value={MOCK_DASHBOARD_STATS.totalAssets.toLocaleString()}
+          title="TOTAL MONITORED ASSETS"
+          value={metrics.loading ? '—' : metrics.totalAssets.toLocaleString()}
           icon={Server}
           color="cyan"
-          subtitle="Cloud & On-Prem endpoints"
-          trend="+12 this week"
+          subtitle={metrics.totalAssets === 0 ? 'No registered endpoints' : 'Cloud & On-Prem endpoints'}
+          trend={assetsSecondaryText}
         />
+
+        {/* 2. ACTIVE ALERTS */}
         <StatCard
-          title="Active Alerts"
-          value={MOCK_DASHBOARD_STATS.activeAlerts}
+          title="ACTIVE ALERTS"
+          value={metrics.loading ? '—' : metrics.activeAlerts}
           icon={ShieldAlert}
           color="amber"
           subtitle="Unresolved detection events"
-          trend="+5 in last hour"
+          trend={alertsSecondaryText}
         />
+
+        {/* 3. CRITICAL ALERTS */}
         <StatCard
-          title="Critical Alerts"
-          value={MOCK_DASHBOARD_STATS.criticalAlerts}
+          title="CRITICAL ALERTS"
+          value={metrics.loading ? '—' : metrics.criticalAlerts}
           icon={AlertTriangle}
           color="red"
-          subtitle="Immediate action required"
-          highlight={true}
+          subtitle={metrics.criticalAlerts === 0 ? 'No active critical alerts' : 'Immediate action required'}
+          highlight={metrics.criticalAlerts > 0}
         />
+
+        {/* 4. OPEN INCIDENTS */}
         <StatCard
-          title="Open Incidents"
-          value={MOCK_DASHBOARD_STATS.openIncidents}
+          title="OPEN INCIDENTS"
+          value={metrics.loading ? '—' : metrics.openIncidents}
           icon={Flame}
           color="red"
-          subtitle="Active SOC escalations"
+          subtitle={incidentsSubtitle}
         />
+
+        {/* 5. CRITICAL VULNERABILITIES */}
         <StatCard
-          title="Critical Vulnerabilities"
-          value={MOCK_DASHBOARD_STATS.criticalVulnerabilities}
+          title="CRITICAL VULNERABILITIES"
+          value={metrics.loading ? '—' : metrics.criticalVulnerabilities}
           icon={Bug}
           color="purple"
-          subtitle="CVSS score > 9.0"
+          subtitle="CVSS score ≥ 9.0"
         />
+
+        {/* 6. IOC MALICIOUS MATCHES */}
         <StatCard
-          title="IOC Malicious Matches"
-          value={MOCK_DASHBOARD_STATS.iocMatches}
+          title="IOC MALICIOUS MATCHES"
+          value={metrics.loading ? '—' : metrics.maliciousIocMatches}
           icon={Binary}
           color="cyan"
-          subtitle="Threat Intel hits"
+          subtitle={metrics.maliciousIocMatches === 0 ? 'No malicious IOC matches' : 'Threat Intel hits'}
         />
+
+        {/* 7. PHISHGUARD AI SCANS */}
         <StatCard
-          title="PhishGuard AI Scans"
-          value={MOCK_DASHBOARD_STATS.phishingScansTotal}
+          title="PHISHGUARD AI SCANS"
+          value={metrics.loading ? '—' : metrics.phishingScans}
           icon={Sparkles}
           color="green"
-          subtitle={`${MOCK_DASHBOARD_STATS.phishingBlocked} Phishing Vectors Blocked`}
+          subtitle={phishingSecondaryText}
         />
+
+        {/* 8. THREAT LEVEL STATUS */}
         <StatCard
-          title="Threat Posture Status"
-          value={postureLevel}
+          title="THREAT LEVEL STATUS"
+          value={metrics.loading ? '—' : metrics.threatLevel}
           icon={Activity}
-          color="amber"
+          color={
+            metrics.threatLevel === 'CRITICAL' || metrics.threatLevel === 'HIGH'
+              ? 'red'
+              : metrics.threatLevel === 'ELEVATED'
+              ? 'amber'
+              : 'green'
+          }
           subtitle="Defensive posture level"
         />
       </div>

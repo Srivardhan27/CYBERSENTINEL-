@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { MailWarning, Sparkles, Upload, FileText, ShieldAlert, CheckCircle2 } from 'lucide-react';
+import { MailWarning, Sparkles, Upload } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import { addDocument, COLLECTIONS } from '../firebase/firestoreService';
 
 const PhishGuardEmailPage = () => {
   const [sender, setSender] = useState('admin-update@external-secure-portal.com');
@@ -23,7 +24,7 @@ const PhishGuardEmailPage = () => {
     model_used: 'RoBERTa-Security-V2 + TF-IDF Heuristic Ensemble',
   });
 
-  const handleAnalyze = () => {
+  const handleAnalyze = async () => {
     const sLower = sender.toLowerCase();
     const bLower = body.toLowerCase();
     const subLower = subject.toLowerCase();
@@ -57,14 +58,22 @@ const PhishGuardEmailPage = () => {
     score = Math.min(100, score);
     const isPhishing = score >= 50;
 
-    setResult({
+    const resObj = {
+      target: sender,
+      type: 'EMAIL',
       classification: isPhishing ? 'PHISHING' : 'LEGITIMATE',
       risk_score: score,
+      riskScore: score,
       confidence: isPhishing ? 0.98 : 0.92,
       reasons: reasons.length ? reasons : ['Email conforms to standard internal operational formatting.'],
-      confirmed_evidence: evidence.length ? evidence : ['CONFIRMED: Clean header alignment and absence of credential links.'],
-      model_used: 'RoBERTa-Security-V2 + TF-IDF Ensemble',
-    });
+      confirmed_evidence: evidence.length ? evidence : ['CONFIRMED: Clean header alignment.'],
+      createdAt: new Date().toISOString(),
+    };
+
+    setResult(resObj);
+
+    // Save scan to Firestore for real-time dashboard updates
+    await addDocument(COLLECTIONS.PHISHING_SCANS, resObj);
   };
 
   const handleEmlUpload = (e) => {
@@ -74,7 +83,6 @@ const PhishGuardEmailPage = () => {
     const reader = new FileReader();
     reader.onload = (evt) => {
       const text = evt.target.result;
-      // Simple EML header parser
       const fromMatch = text.match(/^From:\s*(.+)$/im);
       const subjectMatch = text.match(/^Subject:\s*(.+)$/im);
       if (fromMatch) setSender(fromMatch[1]);

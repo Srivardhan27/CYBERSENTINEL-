@@ -1,16 +1,42 @@
-import React, { useState } from 'react';
-import { ShieldAlert, Filter, AlertTriangle, Eye, ArrowUpRight, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShieldAlert, Filter, Eye, CheckCircle2 } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
+import { doc, updateDoc } from 'firebase/firestore';
+import { COLLECTIONS, subscribeToCollection } from '../firebase/firestoreService';
+import { db } from '../firebase/config';
 import { MOCK_RECENT_EVENTS } from '../utils/mockData';
 
 const AlertsPage = () => {
-  const [alerts, setAlerts] = useState(MOCK_RECENT_EVENTS);
+  const [alerts, setAlerts] = useState([]);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [filterSeverity, setFilterSeverity] = useState('ALL');
 
+  useEffect(() => {
+    const unsub = subscribeToCollection(COLLECTIONS.ALERTS, (data) => {
+      if (data && data.length > 0) {
+        setAlerts(data);
+      } else {
+        setAlerts(MOCK_RECENT_EVENTS);
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const handleResolveAlert = async (alt) => {
+    if (alt._docId || alt.id) {
+      try {
+        const docRef = doc(db, COLLECTIONS.ALERTS, alt._docId || alt.id);
+        await updateDoc(docRef, { status: 'RESOLVED', updatedAt: new Date().toISOString() });
+      } catch (err) {
+        console.warn('Alert update warning:', err);
+      }
+    }
+    setSelectedAlert(null);
+  };
+
   const filteredAlerts = alerts.filter((a) => {
     if (filterSeverity === 'ALL') return true;
-    return a.severity === filterSeverity;
+    return (a.severity || '').toUpperCase() === filterSeverity;
   });
 
   return (
@@ -62,9 +88,9 @@ const AlertsPage = () => {
             </thead>
             <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
               {filteredAlerts.map((alt) => (
-                <tr key={alt.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3 px-3 font-bold text-cyan-400">{alt.id}</td>
-                  <td className="py-3 px-3 text-slate-400">{alt.timestamp}</td>
+                <tr key={alt.id || alt.title} className="hover:bg-slate-800/40 transition-colors">
+                  <td className="py-3 px-3 font-bold text-cyan-400">{alt.id || 'ALT-NEW'}</td>
+                  <td className="py-3 px-3 text-slate-400">{alt.timestamp || 'Just Now'}</td>
                   <td className="py-3 px-3">
                     <StatusBadge level={alt.severity} />
                   </td>
@@ -72,7 +98,7 @@ const AlertsPage = () => {
                   <td className="py-3 px-3 text-slate-300">{alt.sourceIp} → {alt.destIp}</td>
                   <td className="py-3 px-3">
                     <span className="px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/30 text-[10px]">
-                      {alt.mitre}
+                      {alt.mitre || 'T1110'}
                     </span>
                   </td>
                   <td className="py-3 px-3">
@@ -102,11 +128,12 @@ const AlertsPage = () => {
               <StatusBadge level={selectedAlert.severity} />
             </div>
             <h3 className="text-base font-bold font-mono text-white">{selectedAlert.title}</h3>
-            <p className="text-xs text-slate-300">Telemetry evidence matches detection rule <code className="text-cyan-400">{selectedAlert.rule}</code></p>
+            <p className="text-xs text-slate-300">Telemetry evidence matches detection rule <code className="text-cyan-400">{selectedAlert.rule || 'R-SSH-BRUTE'}</code></p>
             <div className="p-3 rounded bg-slate-950 text-xs font-mono text-slate-300 space-y-1">
               <p>Source IP: {selectedAlert.sourceIp}</p>
               <p>Target IP: {selectedAlert.destIp}</p>
               <p>MITRE Technique: {selectedAlert.mitre}</p>
+              <p>Current Status: <span className="text-cyan-400">{selectedAlert.status}</span></p>
             </div>
             <div className="flex justify-end gap-2">
               <button
@@ -115,15 +142,15 @@ const AlertsPage = () => {
               >
                 Close
               </button>
-              <button
-                onClick={() => {
-                  alert(`Escalated ${selectedAlert.id} to Incident!`);
-                  setSelectedAlert(null);
-                }}
-                className="px-4 py-2 rounded bg-rose-600 hover:bg-rose-500 text-xs font-mono font-bold text-white"
-              >
-                Escalate to Incident
-              </button>
+              {selectedAlert.status !== 'RESOLVED' && (
+                <button
+                  onClick={() => handleResolveAlert(selectedAlert)}
+                  className="px-4 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-xs font-mono font-bold text-white flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Mark Resolved</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
