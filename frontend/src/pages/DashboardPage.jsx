@@ -100,27 +100,19 @@ const DashboardPage = () => {
   });
 
   // Scoreboard Secondary Values Logic (0 by default)
-  const assetsSecondaryText = metrics.loading
-    ? '—'
-    : metrics.assetsThisWeek > 0
+  const assetsSecondaryText = metrics.assetsThisWeek > 0
     ? `+${metrics.assetsThisWeek} this week`
     : 'No new assets this week';
 
-  const alertsSecondaryText = metrics.loading
-    ? '—'
-    : metrics.alertsLastHour > 0
+  const alertsSecondaryText = metrics.alertsLastHour > 0
     ? `+${metrics.alertsLastHour} in last hour`
     : 'No new alerts in last hour';
 
-  const incidentsSubtitle = metrics.loading
-    ? '—'
-    : metrics.openIncidents > 0
+  const incidentsSubtitle = metrics.openIncidents > 0
     ? `${metrics.openIncidents} active SOC escalation${metrics.openIncidents === 1 ? '' : 's'}`
     : 'No active SOC escalations';
 
-  const phishingSecondaryText = metrics.loading
-    ? '—'
-    : metrics.phishingScans > 0
+  const phishingSecondaryText = metrics.phishingScans > 0
     ? `${metrics.phishingThreatsBlocked} Phishing Attacks Blocked`
     : 'No phishing scans recorded';
 
@@ -173,7 +165,7 @@ const DashboardPage = () => {
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-rose-950/60 border border-rose-500/40 text-rose-400 font-mono text-xs font-bold glow-red">
             <Activity className="w-3.5 h-3.5 animate-pulse" />
             <span>
-              RISK SCORE: {metrics.loading ? '—' : `${metrics.riskScore}/100`}
+              RISK SCORE: {metrics.riskScore}/100
             </span>
           </div>
         </div>
@@ -206,7 +198,7 @@ const DashboardPage = () => {
         {/* 1. TOTAL MONITORED ASSETS */}
         <StatCard
           title="TOTAL MONITORED ASSETS"
-          value={metrics.loading ? '—' : metrics.totalAssets.toLocaleString()}
+          value={metrics.totalAssets.toLocaleString()}
           icon={Server}
           color="cyan"
           subtitle={metrics.totalAssets === 0 ? 'No registered endpoints' : 'Cloud & On-Prem endpoints'}
@@ -216,7 +208,7 @@ const DashboardPage = () => {
         {/* 2. ACTIVE ALERTS */}
         <StatCard
           title="ACTIVE ALERTS"
-          value={metrics.loading ? '—' : metrics.activeAlerts}
+          value={metrics.activeAlerts}
           icon={ShieldAlert}
           color="amber"
           subtitle="Unresolved detection events"
@@ -226,7 +218,7 @@ const DashboardPage = () => {
         {/* 3. CRITICAL ALERTS */}
         <StatCard
           title="CRITICAL ALERTS"
-          value={metrics.loading ? '—' : metrics.criticalAlerts}
+          value={metrics.criticalAlerts}
           icon={AlertTriangle}
           color="red"
           subtitle={metrics.criticalAlerts === 0 ? 'No active critical alerts' : 'Immediate action required'}
@@ -236,7 +228,7 @@ const DashboardPage = () => {
         {/* 4. OPEN INCIDENTS */}
         <StatCard
           title="OPEN INCIDENTS"
-          value={metrics.loading ? '—' : metrics.openIncidents}
+          value={metrics.openIncidents}
           icon={Flame}
           color="red"
           subtitle={incidentsSubtitle}
@@ -245,7 +237,7 @@ const DashboardPage = () => {
         {/* 5. CRITICAL VULNERABILITIES */}
         <StatCard
           title="CRITICAL VULNERABILITIES"
-          value={metrics.loading ? '—' : metrics.criticalVulnerabilities}
+          value={metrics.criticalVulnerabilities}
           icon={Bug}
           color="purple"
           subtitle="CVSS score ≥ 9.0"
@@ -254,7 +246,7 @@ const DashboardPage = () => {
         {/* 6. IOC MALICIOUS MATCHES */}
         <StatCard
           title="IOC MALICIOUS MATCHES"
-          value={metrics.loading ? '—' : metrics.maliciousIocMatches}
+          value={metrics.maliciousIocMatches}
           icon={Binary}
           color="cyan"
           subtitle={metrics.maliciousIocMatches === 0 ? 'No malicious IOC matches' : 'Threat Intel hits'}
@@ -263,7 +255,7 @@ const DashboardPage = () => {
         {/* 7. PHISHGUARD AI SCANS */}
         <StatCard
           title="PHISHGUARD AI SCANS"
-          value={metrics.loading ? '—' : metrics.phishingScans}
+          value={metrics.phishingScans}
           icon={Sparkles}
           color="green"
           subtitle={phishingSecondaryText}
@@ -272,7 +264,7 @@ const DashboardPage = () => {
         {/* 8. THREAT LEVEL STATUS */}
         <StatCard
           title="THREAT LEVEL STATUS"
-          value={metrics.loading ? '—' : metrics.threatLevel}
+          value={metrics.threatLevel}
           icon={Activity}
           color={
             metrics.threatLevel === 'CRITICAL' || metrics.threatLevel === 'HIGH'

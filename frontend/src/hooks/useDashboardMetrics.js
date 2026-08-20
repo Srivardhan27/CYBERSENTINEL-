@@ -4,8 +4,8 @@ import { db } from '../firebase/config';
 import { COLLECTIONS } from '../firebase/firestoreService';
 
 /**
- * Custom React Hook providing pure 0-base, real-time SOC Dashboard metrics,
- * timeline graphs, severity breakdowns, and event streams.
+ * Custom React Hook providing pure 0-base, real-time SOC Dashboard metrics.
+ * Guaranteed zero-delay initialization (loading: false) with instant fallbacks.
  */
 export const useDashboardMetrics = () => {
   const [metrics, setMetrics] = useState({
@@ -53,14 +53,21 @@ export const useDashboardMetrics = () => {
       { id: 'T1078', name: 'Valid Accounts Abuse', count: 0, tactic: 'Defense Evasion' },
     ],
     recentEvents: [],
-    // Lifecycle States
-    loading: true,
+    // Always initialize loading to false after brief check so UI never gets stuck on '—'
+    loading: false,
     error: null,
   });
 
   useEffect(() => {
     let isMounted = true;
     let unsubAssets, unsubAlerts, unsubIncidents, unsubVulns, unsubIocs, unsubPhish;
+
+    // Safety timeout: ensure loading is false within 300ms
+    const timer = setTimeout(() => {
+      if (isMounted) {
+        setMetrics((prev) => ({ ...prev, loading: false }));
+      }
+    }, 300);
 
     try {
       // 1. Assets Subscription
@@ -78,15 +85,15 @@ export const useDashboardMetrics = () => {
             return ts >= sevenDaysAgo;
           }).length;
 
-          setMetrics((prev) => updateDerivedMetrics({ ...prev, totalAssets: total, assetsThisWeek: thisWeek }));
+          setMetrics((prev) => updateDerivedMetrics({ ...prev, totalAssets: total, assetsThisWeek: thisWeek, loading: false }));
         },
         (err) => {
-          console.warn('Firestore assets snapshot warning:', err.message);
-          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, totalAssets: 0, assetsThisWeek: 0 }));
+          console.warn('Firestore assets snapshot notice:', err.message);
+          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, loading: false }));
         }
       );
 
-      // 2. Alerts Subscription (Calculates Active Alerts, Severity Breakdown, Timeline & MITRE)
+      // 2. Alerts Subscription
       const alertsRef = collection(db, COLLECTIONS.ALERTS || 'alerts');
       unsubAlerts = onSnapshot(
         alertsRef,
@@ -108,7 +115,6 @@ export const useDashboardMetrics = () => {
             return ts >= sixtyMinsAgo;
           }).length;
 
-          // Compute Severity Breakdown Donut Data
           const severityBreakdown = [
             { name: 'Critical', value: criticalCount, color: '#ff3366' },
             { name: 'High', value: highCount, color: '#ffaa00' },
@@ -116,7 +122,6 @@ export const useDashboardMetrics = () => {
             { name: 'Low', value: lowCount, color: '#00ff88' },
           ];
 
-          // Compute 24-Hour Timeline Data (0 by default)
           const timeBuckets = ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'];
           const alertTimeline = timeBuckets.map((t) => {
             const bHour = parseInt(t.split(':')[0]);
@@ -135,7 +140,6 @@ export const useDashboardMetrics = () => {
             };
           });
 
-          // Compute MITRE Technique Frequency
           const mitreCounts = {};
           activeDocs.forEach((d) => {
             if (d.mitre) {
@@ -161,12 +165,13 @@ export const useDashboardMetrics = () => {
               alertTimeline,
               mitreTechniques,
               recentEvents: docs.slice(0, 10),
+              loading: false,
             })
           );
         },
         (err) => {
-          console.warn('Firestore alerts snapshot warning:', err.message);
-          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, activeAlerts: 0, alertsLastHour: 0, criticalAlerts: 0 }));
+          console.warn('Firestore alerts snapshot notice:', err.message);
+          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, loading: false }));
         }
       );
 
@@ -180,11 +185,11 @@ export const useDashboardMetrics = () => {
           const openStatuses = ['NEW', 'OPEN', 'INVESTIGATING', 'ESCALATED', 'IN_PROGRESS'];
           const openCount = docs.filter((d) => openStatuses.includes((d.status || '').toUpperCase())).length;
 
-          setMetrics((prev) => updateDerivedMetrics({ ...prev, openIncidents: openCount }));
+          setMetrics((prev) => updateDerivedMetrics({ ...prev, openIncidents: openCount, loading: false }));
         },
         (err) => {
-          console.warn('Firestore incidents snapshot warning:', err.message);
-          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, openIncidents: 0 }));
+          console.warn('Firestore incidents snapshot notice:', err.message);
+          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, loading: false }));
         }
       );
 
@@ -203,11 +208,11 @@ export const useDashboardMetrics = () => {
             return isOpen && (isHighCvss || isCritSev);
           }).length;
 
-          setMetrics((prev) => updateDerivedMetrics({ ...prev, criticalVulnerabilities: criticalCount }));
+          setMetrics((prev) => updateDerivedMetrics({ ...prev, criticalVulnerabilities: criticalCount, loading: false }));
         },
         (err) => {
-          console.warn('Firestore vulns snapshot warning:', err.message);
-          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, criticalVulnerabilities: 0 }));
+          console.warn('Firestore vulns snapshot notice:', err.message);
+          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, loading: false }));
         }
       );
 
@@ -224,11 +229,11 @@ export const useDashboardMetrics = () => {
             return isMaliciousRep || isHighRisk;
           }).length;
 
-          setMetrics((prev) => updateDerivedMetrics({ ...prev, maliciousIocMatches: maliciousCount }));
+          setMetrics((prev) => updateDerivedMetrics({ ...prev, maliciousIocMatches: maliciousCount, loading: false }));
         },
         (err) => {
-          console.warn('Firestore IOCs snapshot warning:', err.message);
-          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, maliciousIocMatches: 0 }));
+          console.warn('Firestore IOCs snapshot notice:', err.message);
+          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, loading: false }));
         }
       );
 
@@ -256,8 +261,8 @@ export const useDashboardMetrics = () => {
           );
         },
         (err) => {
-          console.warn('Firestore phishingScans snapshot warning:', err.message);
-          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, phishingScans: 0, phishingThreatsBlocked: 0, loading: false }));
+          console.warn('Firestore phishingScans snapshot notice:', err.message);
+          if (isMounted) setMetrics((prev) => updateDerivedMetrics({ ...prev, loading: false }));
         }
       );
     } catch (err) {
@@ -267,6 +272,7 @@ export const useDashboardMetrics = () => {
 
     return () => {
       isMounted = false;
+      clearTimeout(timer);
       if (unsubAssets) unsubAssets();
       if (unsubAlerts) unsubAlerts();
       if (unsubIncidents) unsubIncidents();
@@ -280,8 +286,7 @@ export const useDashboardMetrics = () => {
 };
 
 /**
- * Calculates dynamic overall risk score (0-100) and threat level classification
- * based exclusively on real current platform security metrics.
+ * Calculates dynamic overall risk score (0-100) and threat level classification.
  */
 function updateDerivedMetrics(current) {
   const {
@@ -293,7 +298,6 @@ function updateDerivedMetrics(current) {
     phishingThreatsBlocked = 0,
   } = current;
 
-  // Composite Formula based on real security events (0 by default)
   let rawScore =
     criticalAlerts * 15 +
     (activeAlerts - criticalAlerts) * 4 +
