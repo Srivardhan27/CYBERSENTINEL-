@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ShieldAlert,
@@ -35,37 +35,25 @@ import {
 import StatCard from '../components/StatCard';
 import StatusBadge from '../components/StatusBadge';
 import useDashboardMetrics from '../hooks/useDashboardMetrics';
-import { seedInitialTelemetryIfEmpty } from '../utils/firestoreSeeder';
-import {
-  MOCK_SEVERITY_BREAKDOWN,
-  MOCK_ALERT_TIMELINE,
-  MOCK_MITRE_TECHNIQUES,
-  MOCK_RECENT_EVENTS,
-} from '../utils/mockData';
 
 const MOCK_ATTACK_STREAMS = [
-  { id: 'ATK-101', origin: '185.220.101.5 (Tor / Moscow Node)', target: '10.0.0.12 (PROD-DB-01)', vector: 'SSH Brute Force (T1110)', status: 'ACTIVE BLOCKED', severity: 'CRITICAL' },
+  { id: 'ATK-101', origin: '185.220.101.5 (Tor Node)', target: '10.0.0.12 (PROD-DB-01)', vector: 'SSH Brute Force (T1110)', status: 'ACTIVE BLOCKED', severity: 'CRITICAL' },
   { id: 'ATK-102', origin: '45.33.32.156 (Ashburn USA)', target: '10.0.2.14 (K8S-NODE-02)', vector: 'SYN Port Scan (T1046)', status: 'MONITORED', severity: 'HIGH' },
   { id: 'ATK-103', origin: '103.253.41.88 (Tokyo Node)', target: '10.0.4.88 (WORKSTATION-04)', vector: 'Encoded PowerShell (T1059.001)', status: 'CONTAINED', severity: 'CRITICAL' },
   { id: 'ATK-104', origin: '194.26.29.112 (Frankfurt)', target: 'user.target@corp.internal', vector: 'PhishGuard Credential Link (T1566.002)', status: 'BLOCKED BY AI', severity: 'HIGH' },
 ];
 
 const DashboardPage = () => {
-  // Real-time Firestore Dashboard Metrics Hook
+  // Real-time 0-Base Firestore Dashboard Metrics Hook
   const metrics = useDashboardMetrics();
 
   const [filterSeverity, setFilterSeverity] = useState('ALL');
   const [isSyncing, setIsSyncing] = useState(false);
   const [activeActions, setActiveActions] = useState([]);
 
-  // Auto-seed starting telemetry if database is empty
-  useEffect(() => {
-    seedInitialTelemetryIfEmpty();
-  }, []);
-
   const handleSync = () => {
     setIsSyncing(true);
-    setTimeout(() => setIsSyncing(false), 600);
+    setTimeout(() => setIsSyncing(false), 500);
   };
 
   const handleTriggerAction = (actionName) => {
@@ -74,12 +62,12 @@ const DashboardPage = () => {
     }
   };
 
-  const filteredEvents = MOCK_RECENT_EVENTS.filter((event) => {
+  const filteredEvents = (metrics.recentEvents || []).filter((event) => {
     if (filterSeverity === 'ALL') return true;
-    return event.severity === filterSeverity;
+    return (event.severity || '').toUpperCase() === filterSeverity;
   });
 
-  // Scoreboard Secondary Values Logic
+  // Scoreboard Secondary Values Logic (0 by default)
   const assetsSecondaryText = metrics.loading
     ? '—'
     : metrics.assetsThisWeek > 0
@@ -145,7 +133,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* 8 Real-Time Scoreboard Cards Grid */}
+      {/* 8 Real-Time 0-Base Scoreboard Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* 1. TOTAL MONITORED ASSETS */}
         <StatCard
@@ -273,7 +261,7 @@ const DashboardPage = () => {
         </div>
       </div>
 
-      {/* Charts Grid */}
+      {/* Real-Time Graphs Grid (0 by default when no events exist) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* 24-Hour Alert Volume Timeline */}
         <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900/80 border border-slate-800">
@@ -290,7 +278,7 @@ const DashboardPage = () => {
           </div>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={MOCK_ALERT_TIMELINE}>
+              <AreaChart data={metrics.alertTimeline}>
                 <defs>
                   <linearGradient id="colorCritical" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#ff3366" stopOpacity={0.8} />
@@ -344,7 +332,7 @@ const DashboardPage = () => {
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={MOCK_SEVERITY_BREAKDOWN}
+                  data={metrics.severityBreakdown}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
@@ -352,7 +340,7 @@ const DashboardPage = () => {
                   paddingAngle={5}
                   dataKey="value"
                 >
-                  {MOCK_SEVERITY_BREAKDOWN.map((entry, index) => (
+                  {metrics.severityBreakdown.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
@@ -369,7 +357,7 @@ const DashboardPage = () => {
             </ResponsiveContainer>
           </div>
           <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800">
-            {MOCK_SEVERITY_BREAKDOWN.map((item) => (
+            {metrics.severityBreakdown.map((item) => (
               <div key={item.name} className="flex items-center gap-2">
                 <span
                   className="w-2.5 h-2.5 rounded-full"
@@ -395,7 +383,7 @@ const DashboardPage = () => {
           </p>
           <div className="h-56 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={MOCK_MITRE_TECHNIQUES} layout="vertical">
+              <BarChart data={metrics.mitreTechniques} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                 <XAxis type="number" stroke="#64748b" fontSize={11} fontFamily="monospace" />
                 <YAxis
@@ -537,48 +525,54 @@ const DashboardPage = () => {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-[11px] font-mono uppercase text-slate-400 bg-slate-950/40">
-                <th className="py-2.5 px-3">Alert ID</th>
-                <th className="py-2.5 px-3">Timestamp</th>
-                <th className="py-2.5 px-3">Severity</th>
-                <th className="py-2.5 px-3">Event Description</th>
-                <th className="py-2.5 px-3">Source IP</th>
-                <th className="py-2.5 px-3">Rule / MITRE</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
-              {filteredEvents.map((evt) => (
-                <tr key={evt.id} className="hover:bg-slate-800/40 transition-colors">
-                  <td className="py-3 px-3 font-semibold text-cyan-400">{evt.id}</td>
-                  <td className="py-3 px-3 text-slate-400 whitespace-nowrap">{evt.timestamp}</td>
-                  <td className="py-3 px-3">
-                    <StatusBadge level={evt.severity} />
-                  </td>
-                  <td className="py-3 px-3 font-sans font-medium text-slate-200">{evt.title}</td>
-                  <td className="py-3 px-3 text-slate-300 font-mono">{evt.sourceIp}</td>
-                  <td className="py-3 px-3">
-                    <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">
-                      {evt.mitre} ({evt.rule})
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <StatusBadge level={evt.status} />
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <Link to="/alerts" className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-cyan-400 inline-block">
-                      <ChevronRight className="w-4 h-4" />
-                    </Link>
-                  </td>
+        {filteredEvents.length === 0 ? (
+          <div className="p-8 text-center bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono text-slate-400">
+            No active security events recorded in database. Submit a scan or log a security alert to populate telemetry.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-[11px] font-mono uppercase text-slate-400 bg-slate-950/40">
+                  <th className="py-2.5 px-3">Alert ID</th>
+                  <th className="py-2.5 px-3">Timestamp</th>
+                  <th className="py-2.5 px-3">Severity</th>
+                  <th className="py-2.5 px-3">Event Description</th>
+                  <th className="py-2.5 px-3">Source IP</th>
+                  <th className="py-2.5 px-3">Rule / MITRE</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3 text-right">Action</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-xs font-mono">
+                {filteredEvents.map((evt) => (
+                  <tr key={evt._docId || evt.id} className="hover:bg-slate-800/40 transition-colors">
+                    <td className="py-3 px-3 font-semibold text-cyan-400">{evt.id || 'ALT-NEW'}</td>
+                    <td className="py-3 px-3 text-slate-400 whitespace-nowrap">{evt.timestamp || 'Just Now'}</td>
+                    <td className="py-3 px-3">
+                      <StatusBadge level={evt.severity} />
+                    </td>
+                    <td className="py-3 px-3 font-sans font-medium text-slate-200">{evt.title}</td>
+                    <td className="py-3 px-3 text-slate-300 font-mono">{evt.sourceIp}</td>
+                    <td className="py-3 px-3">
+                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 text-[10px]">
+                        {evt.mitre} ({evt.rule})
+                      </span>
+                    </td>
+                    <td className="py-3 px-3">
+                      <StatusBadge level={evt.status} />
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <Link to="/alerts" className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-cyan-400 inline-block">
+                        <ChevronRight className="w-4 h-4" />
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );
